@@ -31,13 +31,16 @@ export async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  // Replit runs behind a proxy, so we need appropriate settings
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || 'hr-connect-secret-key',
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     store: storage.sessionStore,
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: 'auto' as any,
+      httpOnly: true,
+      sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   };
