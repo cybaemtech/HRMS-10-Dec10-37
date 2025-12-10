@@ -178,3 +178,5 @@
 [x] 178. Applied consistent executive styling with motion animations, gradient buttons, and professional form sections
 [x] 179. December 10, 2025: Installed cross-env package and restarted workflow - application running on port 5000
 [x] 180. MIGRATION SESSION COMPLETE: All dependencies installed, workflow running successfully
+[x] 181. Fixed employee profile "Save Changes" button not working - added proper authentication check to PUT /api/employees/:id endpoint
+[x] 182. Employees can now update their own profile in Settings -> Profile, data saves to existing JSON file
