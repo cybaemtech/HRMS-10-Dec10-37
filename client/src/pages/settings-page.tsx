@@ -1462,7 +1462,7 @@ function EmployeeProfileForm() {
             ) : (
               <Button
                 type="button"
-                onClick={form.handleSubmit(onSubmit)}
+                onClick={() => form.handleSubmit(onSubmit)()}
                 disabled={updateProfileMutation.isPending}
                 className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
                 data-testid="button-save-profile"
