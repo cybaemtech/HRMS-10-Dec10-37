@@ -47,12 +47,23 @@ interface ShiftSettings {
   autoAssign: boolean;
 }
 
+interface ShiftAssignment {
+  id: number;
+  employee: string;
+  department: string;
+  shift: string;
+  startDate: string;
+  endDate: string;
+}
+
 export default function ShiftsPage() {
   const { toast } = useToast();
   const [isAddShiftOpen, setIsAddShiftOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isEditAssignmentOpen, setIsEditAssignmentOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingShiftId, setEditingShiftId] = useState<number | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<ShiftAssignment | null>(null);
 
   const [shifts, setShifts] = useState<Shift[]>([
     { id: 1, name: "Morning Shift", startTime: "06:00", endTime: "14:00", employees: 45, icon: <Sunrise className="h-5 w-5" />, color: "bg-amber-50 text-amber-600", description: "Early morning shift for production" },
@@ -208,6 +219,36 @@ export default function ShiftsPage() {
     });
   };
 
+  const handleEditAssignment = (assignment: ShiftAssignment) => {
+    setEditingAssignment({ ...assignment });
+    setIsEditAssignmentOpen(true);
+  };
+
+  const handleSaveAssignment = () => {
+    if (!editingAssignment) return;
+    
+    if (!editingAssignment.employee || !editingAssignment.shift || !editingAssignment.startDate || !editingAssignment.endDate) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setShiftSchedule(prev => prev.map(s => 
+      s.id === editingAssignment.id ? editingAssignment : s
+    ));
+    
+    toast({
+      title: "Assignment Updated",
+      description: `${editingAssignment.employee}'s shift has been updated`
+    });
+    
+    setIsEditAssignmentOpen(false);
+    setEditingAssignment(null);
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -332,7 +373,12 @@ export default function ShiftsPage() {
                       <td className="py-3 px-4 text-slate-600">{schedule.endDate}</td>
                       <td className="py-3 px-4">
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" data-testid={`button-edit-schedule-${index}`}>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleEditAssignment(schedule)}
+                            data-testid={`button-edit-schedule-${index}`}
+                          >
                             <Edit className="h-3 w-3 mr-1" />
                             Edit
                           </Button>
@@ -593,6 +639,115 @@ export default function ShiftsPage() {
             </Button>
             <Button onClick={handleSaveSettings} data-testid="button-save-settings">
               Save Settings
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditAssignmentOpen} onOpenChange={setIsEditAssignmentOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-teal-50">
+                <Calendar className="h-5 w-5 text-teal-600" />
+              </div>
+              Edit Shift Assignment
+            </DialogTitle>
+            <DialogDescription>
+              Update the employee's shift assignment details
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingAssignment && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="assignmentEmployee">Employee Name *</Label>
+                <Input
+                  id="assignmentEmployee"
+                  value={editingAssignment.employee}
+                  onChange={(e) => setEditingAssignment(prev => prev ? { ...prev, employee: e.target.value } : null)}
+                  data-testid="input-assignment-employee"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="assignmentDepartment">Department *</Label>
+                <Select
+                  value={editingAssignment.department}
+                  onValueChange={(value) => setEditingAssignment(prev => prev ? { ...prev, department: value } : null)}
+                >
+                  <SelectTrigger data-testid="select-assignment-department">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Engineering">Engineering</SelectItem>
+                    <SelectItem value="Marketing">Marketing</SelectItem>
+                    <SelectItem value="Sales">Sales</SelectItem>
+                    <SelectItem value="HR">HR</SelectItem>
+                    <SelectItem value="Finance">Finance</SelectItem>
+                    <SelectItem value="Operations">Operations</SelectItem>
+                    <SelectItem value="IT">IT</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="assignmentShift">Shift *</Label>
+                <Select
+                  value={editingAssignment.shift}
+                  onValueChange={(value) => setEditingAssignment(prev => prev ? { ...prev, shift: value } : null)}
+                >
+                  <SelectTrigger data-testid="select-assignment-shift">
+                    <SelectValue placeholder="Select shift" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {shifts.map((shift) => (
+                      <SelectItem key={shift.id} value={shift.name}>
+                        {shift.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="assignmentStartDate">Start Date *</Label>
+                  <Input
+                    id="assignmentStartDate"
+                    type="date"
+                    value={editingAssignment.startDate}
+                    onChange={(e) => setEditingAssignment(prev => prev ? { ...prev, startDate: e.target.value } : null)}
+                    data-testid="input-assignment-start-date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="assignmentEndDate">End Date *</Label>
+                  <Input
+                    id="assignmentEndDate"
+                    type="date"
+                    value={editingAssignment.endDate}
+                    onChange={(e) => setEditingAssignment(prev => prev ? { ...prev, endDate: e.target.value } : null)}
+                    data-testid="input-assignment-end-date"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsEditAssignmentOpen(false);
+                setEditingAssignment(null);
+              }} 
+              data-testid="button-cancel-assignment"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveAssignment} data-testid="button-save-assignment">
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
