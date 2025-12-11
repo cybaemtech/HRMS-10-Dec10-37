@@ -2,13 +2,19 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Download, TrendingUp, TrendingDown, Building2, UserPlus, UserMinus } from "lucide-react";
+import { Users, Download, TrendingUp, TrendingDown, Building2, UserPlus, UserMinus, Search, FileSpreadsheet } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
 
 export default function HeadcountReportPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("Q4 2023");
+  const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
 
   const headcountStats = [
     { title: "Total Headcount", value: "156", change: "+12", icon: <Users className="h-5 w-5" /> },
@@ -26,6 +32,75 @@ export default function HeadcountReportPage() {
     { department: "Operations", headcount: 24, newHires: 1, separations: 0, growth: 4.3 },
   ];
 
+  const filteredData = departmentData.filter(dept =>
+    dept.department.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.text("HEADCOUNT REPORT", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.text(`Period: ${selectedPeriod}`, 20, 40);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 50);
+    
+    doc.setFontSize(11);
+    doc.text("Summary:", 20, 70);
+    doc.text("Total Headcount: 156 employees", 30, 80);
+    doc.text("New Hires: 18", 30, 90);
+    doc.text("Separations: 6", 30, 100);
+    doc.text("Net Growth Rate: 8.3%", 30, 110);
+    
+    doc.text("Department-wise Breakdown:", 20, 130);
+    
+    let yPos = 145;
+    doc.setFontSize(10);
+    doc.text("Department", 20, yPos);
+    doc.text("Headcount", 65, yPos);
+    doc.text("New Hires", 100, yPos);
+    doc.text("Separations", 135, yPos);
+    doc.text("Growth %", 170, yPos);
+    
+    yPos += 10;
+    filteredData.forEach((dept) => {
+      doc.text(dept.department, 20, yPos);
+      doc.text(dept.headcount.toString(), 65, yPos);
+      doc.text(dept.newHires.toString(), 100, yPos);
+      doc.text(dept.separations.toString(), 135, yPos);
+      doc.text(`${dept.growth}%`, 170, yPos);
+      yPos += 8;
+    });
+    
+    doc.save(`headcount_report_${selectedPeriod.replace(/\s+/g, '_')}.pdf`);
+    
+    toast({
+      title: "PDF Exported",
+      description: `Headcount report for ${selectedPeriod} downloaded successfully.`
+    });
+  };
+
+  const handleExportExcel = () => {
+    const exportData = filteredData.map(dept => ({
+      "Department": dept.department,
+      "Headcount": dept.headcount,
+      "New Hires": dept.newHires,
+      "Separations": dept.separations,
+      "Growth (%)": dept.growth
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Headcount Report");
+    XLSX.writeFile(wb, `headcount_report_${selectedPeriod.replace(/\s+/g, '_')}.xlsx`);
+
+    toast({
+      title: "Excel Exported",
+      description: `Headcount report exported to Excel successfully.`
+    });
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -38,7 +113,7 @@ export default function HeadcountReportPage() {
             <h1 className="text-2xl font-bold text-slate-900" data-testid="text-page-title">Headcount Report</h1>
             <p className="text-slate-500 mt-1">Employee headcount analysis by department</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
               <SelectTrigger className="w-32" data-testid="select-period">
                 <SelectValue />
@@ -47,11 +122,17 @@ export default function HeadcountReportPage() {
                 <SelectItem value="Q4 2023">Q4 2023</SelectItem>
                 <SelectItem value="Q3 2023">Q3 2023</SelectItem>
                 <SelectItem value="Q2 2023">Q2 2023</SelectItem>
+                <SelectItem value="Q1 2023">Q1 2023</SelectItem>
+                <SelectItem value="Q4 2022">Q4 2022</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" className="gap-2" data-testid="button-export">
+            <Button variant="outline" className="gap-2" onClick={handleExportPDF} data-testid="button-export-pdf">
               <Download className="h-4 w-4" />
-              Export
+              PDF
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={handleExportExcel} data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
             </Button>
           </div>
         </motion.div>
@@ -87,11 +168,25 @@ export default function HeadcountReportPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-teal-600" />
-              Department Headcount - {selectedPeriod}
-            </CardTitle>
-            <CardDescription>Headcount breakdown by department</CardDescription>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-teal-600" />
+                  Department Headcount - {selectedPeriod}
+                </CardTitle>
+                <CardDescription>Headcount breakdown by department</CardDescription>
+              </div>
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search department..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -106,7 +201,7 @@ export default function HeadcountReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {departmentData.map((dept, index) => (
+                  {filteredData.map((dept, index) => (
                     <tr key={index} className="border-b hover:bg-slate-50" data-testid={`row-dept-${index}`}>
                       <td className="py-3 px-4 font-medium">{dept.department}</td>
                       <td className="py-3 px-4">{dept.headcount}</td>

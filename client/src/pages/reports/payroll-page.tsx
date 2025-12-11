@@ -2,13 +2,19 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { IndianRupee, Download, Calendar, TrendingUp, Users, Wallet } from "lucide-react";
+import { IndianRupee, Download, Calendar, TrendingUp, Users, Wallet, Search, FileSpreadsheet } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
 
 export default function PayrollReportPage() {
   const [selectedMonth, setSelectedMonth] = useState("January 2024");
+  const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
 
   const payrollStats = [
     { title: "Total Payroll", value: "₹45,60,000", icon: <IndianRupee className="h-5 w-5" />, color: "bg-teal-50 text-teal-600" },
@@ -25,12 +31,81 @@ export default function PayrollReportPage() {
     { department: "Finance", employees: 15, gross: 600000, deductions: 96000, net: 504000 },
   ];
 
+  const filteredData = departmentPayroll.filter(dept =>
+    dept.department.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0
     }).format(value);
+  };
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.text("PAYROLL REPORT", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.text(`Period: ${selectedMonth}`, 20, 40);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 50);
+    
+    doc.setFontSize(11);
+    doc.text("Summary:", 20, 70);
+    doc.text("Total Payroll: Rs. 45,60,000", 30, 80);
+    doc.text("Net Disbursed: Rs. 38,25,000", 30, 90);
+    doc.text("Total Deductions: Rs. 7,35,000", 30, 100);
+    doc.text("Employees Paid: 156", 30, 110);
+    
+    doc.text("Department-wise Breakdown:", 20, 130);
+    
+    let yPos = 145;
+    doc.setFontSize(10);
+    doc.text("Department", 20, yPos);
+    doc.text("Employees", 55, yPos);
+    doc.text("Gross Salary", 85, yPos);
+    doc.text("Deductions", 125, yPos);
+    doc.text("Net Salary", 165, yPos);
+    
+    yPos += 10;
+    filteredData.forEach((dept) => {
+      doc.text(dept.department, 20, yPos);
+      doc.text(dept.employees.toString(), 55, yPos);
+      doc.text(formatCurrency(dept.gross), 85, yPos);
+      doc.text(formatCurrency(dept.deductions), 125, yPos);
+      doc.text(formatCurrency(dept.net), 165, yPos);
+      yPos += 8;
+    });
+    
+    doc.save(`payroll_report_${selectedMonth.replace(/\s+/g, '_')}.pdf`);
+    
+    toast({
+      title: "PDF Exported",
+      description: `Payroll report for ${selectedMonth} downloaded successfully.`
+    });
+  };
+
+  const handleExportExcel = () => {
+    const exportData = filteredData.map(dept => ({
+      "Department": dept.department,
+      "Employees": dept.employees,
+      "Gross Salary": dept.gross,
+      "Deductions": dept.deductions,
+      "Net Salary": dept.net
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Payroll Report");
+    XLSX.writeFile(wb, `payroll_report_${selectedMonth.replace(/\s+/g, '_')}.xlsx`);
+
+    toast({
+      title: "Excel Exported",
+      description: `Payroll report exported to Excel successfully.`
+    });
   };
 
   return (
@@ -55,11 +130,16 @@ export default function PayrollReportPage() {
                 <SelectItem value="January 2024">January 2024</SelectItem>
                 <SelectItem value="December 2023">December 2023</SelectItem>
                 <SelectItem value="November 2023">November 2023</SelectItem>
+                <SelectItem value="October 2023">October 2023</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" className="gap-2" data-testid="button-export">
+            <Button variant="outline" className="gap-2" onClick={handleExportPDF} data-testid="button-export-pdf">
               <Download className="h-4 w-4" />
-              Export
+              PDF
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={handleExportExcel} data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
             </Button>
           </div>
         </motion.div>
@@ -91,11 +171,25 @@ export default function PayrollReportPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <IndianRupee className="h-5 w-5 text-teal-600" />
-              Department-wise Payroll Summary
-            </CardTitle>
-            <CardDescription>Payroll breakdown by department for {selectedMonth}</CardDescription>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <IndianRupee className="h-5 w-5 text-teal-600" />
+                  Department-wise Payroll Summary
+                </CardTitle>
+                <CardDescription>Payroll breakdown by department for {selectedMonth}</CardDescription>
+              </div>
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search department..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -110,7 +204,7 @@ export default function PayrollReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {departmentPayroll.map((dept, index) => (
+                  {filteredData.map((dept, index) => (
                     <tr key={index} className="border-b hover:bg-slate-50" data-testid={`row-payroll-${index}`}>
                       <td className="py-3 px-4 font-medium">{dept.department}</td>
                       <td className="py-3 px-4">{dept.employees}</td>
@@ -123,10 +217,10 @@ export default function PayrollReportPage() {
                 <tfoot>
                   <tr className="bg-slate-50 font-semibold">
                     <td className="py-3 px-4">Total</td>
-                    <td className="py-3 px-4">122</td>
-                    <td className="py-3 px-4">{formatCurrency(departmentPayroll.reduce((sum, d) => sum + d.gross, 0))}</td>
-                    <td className="py-3 px-4 text-red-600">{formatCurrency(departmentPayroll.reduce((sum, d) => sum + d.deductions, 0))}</td>
-                    <td className="py-3 px-4 text-green-600">{formatCurrency(departmentPayroll.reduce((sum, d) => sum + d.net, 0))}</td>
+                    <td className="py-3 px-4">{filteredData.reduce((sum, d) => sum + d.employees, 0)}</td>
+                    <td className="py-3 px-4">{formatCurrency(filteredData.reduce((sum, d) => sum + d.gross, 0))}</td>
+                    <td className="py-3 px-4 text-red-600">{formatCurrency(filteredData.reduce((sum, d) => sum + d.deductions, 0))}</td>
+                    <td className="py-3 px-4 text-green-600">{formatCurrency(filteredData.reduce((sum, d) => sum + d.net, 0))}</td>
                   </tr>
                 </tfoot>
               </table>

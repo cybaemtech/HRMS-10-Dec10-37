@@ -3,21 +3,26 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Calendar, CheckCircle, XCircle, LogIn, LogOut } from "lucide-react";
+import { Clock, Calendar, CheckCircle, XCircle, LogIn, LogOut, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+
+interface AttendanceRecord {
+  date: string;
+  day: string;
+  checkIn: string;
+  checkOut: string;
+  hours: string;
+  status: string;
+}
 
 export default function MyAttendancePage() {
   const [selectedMonth, setSelectedMonth] = useState("January 2024");
+  const { toast } = useToast();
 
-  const attendanceStats = [
-    { title: "Present Days", value: "22", icon: <CheckCircle className="h-5 w-5" />, color: "bg-green-50 text-green-600" },
-    { title: "Absent Days", value: "1", icon: <XCircle className="h-5 w-5" />, color: "bg-red-50 text-red-600" },
-    { title: "Leave Days", value: "2", icon: <Calendar className="h-5 w-5" />, color: "bg-yellow-50 text-yellow-600" },
-    { title: "Avg Work Hours", value: "8.5h", icon: <Clock className="h-5 w-5" />, color: "bg-blue-50 text-blue-600" },
-  ];
-
-  const attendance = [
+  const attendance: AttendanceRecord[] = [
     { date: "Jan 26, 2024", day: "Friday", checkIn: "9:00 AM", checkOut: "6:15 PM", hours: "9h 15m", status: "Present" },
     { date: "Jan 25, 2024", day: "Thursday", checkIn: "9:05 AM", checkOut: "6:30 PM", hours: "9h 25m", status: "Present" },
     { date: "Jan 24, 2024", day: "Wednesday", checkIn: "8:55 AM", checkOut: "6:00 PM", hours: "9h 5m", status: "Present" },
@@ -25,6 +30,30 @@ export default function MyAttendancePage() {
     { date: "Jan 22, 2024", day: "Monday", checkIn: "9:10 AM", checkOut: "6:20 PM", hours: "9h 10m", status: "Present" },
     { date: "Jan 19, 2024", day: "Friday", checkIn: "9:00 AM", checkOut: "6:00 PM", hours: "9h 0m", status: "Present" },
     { date: "Jan 18, 2024", day: "Thursday", checkIn: "-", checkOut: "-", hours: "-", status: "Absent" },
+    { date: "Jan 17, 2024", day: "Wednesday", checkIn: "8:50 AM", checkOut: "6:10 PM", hours: "9h 20m", status: "Present" },
+    { date: "Jan 16, 2024", day: "Tuesday", checkIn: "9:15 AM", checkOut: "6:45 PM", hours: "9h 30m", status: "Present" },
+    { date: "Jan 15, 2024", day: "Monday", checkIn: "9:00 AM", checkOut: "6:00 PM", hours: "9h 0m", status: "Present" },
+  ];
+
+  const presentDays = attendance.filter(a => a.status === "Present").length;
+  const absentDays = attendance.filter(a => a.status === "Absent").length;
+  const leaveDays = attendance.filter(a => a.status === "Leave").length;
+  const totalHours = attendance
+    .filter(a => a.hours !== "-")
+    .reduce((sum, a) => {
+      const match = a.hours.match(/(\d+)h\s*(\d+)m/);
+      if (match) {
+        return sum + parseInt(match[1]) + parseInt(match[2]) / 60;
+      }
+      return sum;
+    }, 0);
+  const avgHours = presentDays > 0 ? (totalHours / presentDays).toFixed(1) : "0";
+
+  const attendanceStats = [
+    { title: "Present Days", value: presentDays.toString(), icon: <CheckCircle className="h-5 w-5" />, color: "bg-green-50 text-green-600" },
+    { title: "Absent Days", value: absentDays.toString(), icon: <XCircle className="h-5 w-5" />, color: "bg-red-50 text-red-600" },
+    { title: "Leave Days", value: leaveDays.toString(), icon: <Calendar className="h-5 w-5" />, color: "bg-yellow-50 text-yellow-600" },
+    { title: "Avg Work Hours", value: `${avgHours}h`, icon: <Clock className="h-5 w-5" />, color: "bg-blue-50 text-blue-600" },
   ];
 
   const getStatusColor = (status: string) => {
@@ -35,6 +64,54 @@ export default function MyAttendancePage() {
       case "Holiday": return "bg-blue-100 text-blue-700";
       default: return "bg-slate-100 text-slate-700";
     }
+  };
+
+  const handleExport = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.text("ATTENDANCE REPORT", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.text(`Period: ${selectedMonth}`, 20, 40);
+    doc.text("Employee: John Doe", 20, 50);
+    doc.text("Employee ID: EMP001", 20, 60);
+    
+    doc.setFontSize(11);
+    doc.text("Summary:", 20, 80);
+    doc.text(`Present Days: ${presentDays}`, 30, 90);
+    doc.text(`Absent Days: ${absentDays}`, 30, 100);
+    doc.text(`Leave Days: ${leaveDays}`, 30, 110);
+    doc.text(`Average Work Hours: ${avgHours}h`, 30, 120);
+    
+    doc.text("Daily Attendance:", 20, 140);
+    let yPos = 150;
+    
+    doc.setFontSize(10);
+    doc.text("Date", 20, yPos);
+    doc.text("Day", 55, yPos);
+    doc.text("Check In", 85, yPos);
+    doc.text("Check Out", 115, yPos);
+    doc.text("Hours", 150, yPos);
+    doc.text("Status", 175, yPos);
+    
+    yPos += 10;
+    attendance.forEach((record) => {
+      doc.text(record.date, 20, yPos);
+      doc.text(record.day, 55, yPos);
+      doc.text(record.checkIn, 85, yPos);
+      doc.text(record.checkOut, 115, yPos);
+      doc.text(record.hours, 150, yPos);
+      doc.text(record.status, 175, yPos);
+      yPos += 8;
+    });
+    
+    doc.save(`attendance_report_${selectedMonth.replace(/\s+/g, '_')}.pdf`);
+    
+    toast({
+      title: "Report Exported",
+      description: `Attendance report for ${selectedMonth} downloaded successfully.`
+    });
   };
 
   return (
@@ -49,17 +126,25 @@ export default function MyAttendancePage() {
             <h1 className="text-2xl font-bold text-slate-900" data-testid="text-page-title">My Attendance</h1>
             <p className="text-slate-500 mt-1">View your attendance records</p>
           </div>
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-40" data-testid="select-month">
-              <Calendar className="h-4 w-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="January 2024">January 2024</SelectItem>
-              <SelectItem value="December 2023">December 2023</SelectItem>
-              <SelectItem value="November 2023">November 2023</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2 flex-wrap">
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-40" data-testid="select-month">
+                <Calendar className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="January 2024">January 2024</SelectItem>
+                <SelectItem value="December 2023">December 2023</SelectItem>
+                <SelectItem value="November 2023">November 2023</SelectItem>
+                <SelectItem value="October 2023">October 2023</SelectItem>
+                <SelectItem value="September 2023">September 2023</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" className="gap-2" onClick={handleExport} data-testid="button-export">
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          </div>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

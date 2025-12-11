@@ -2,13 +2,19 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Download, Calendar, TrendingUp, Users, Clock } from "lucide-react";
+import { CalendarDays, Download, Calendar, TrendingUp, Users, Clock, Search, FileSpreadsheet } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
 
 export default function LeaveReportPage() {
   const [selectedYear, setSelectedYear] = useState("2024");
+  const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
 
   const leaveStats = [
     { title: "Total Leave Taken", value: "456", icon: <CalendarDays className="h-5 w-5" />, color: "bg-teal-50 text-teal-600" },
@@ -24,6 +30,72 @@ export default function LeaveReportPage() {
     { type: "WFH", taken: 67, balance: 178, utilized: 27 },
     { type: "Maternity/Paternity", taken: 10, balance: 45, utilized: 18 },
   ];
+
+  const filteredData = leaveTypeData.filter(item =>
+    item.type.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.text("LEAVE REPORT", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.text(`Year: ${selectedYear}`, 20, 40);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 50);
+    
+    doc.setFontSize(11);
+    doc.text("Summary:", 20, 70);
+    doc.text("Total Leave Taken: 456 days", 30, 80);
+    doc.text("Pending Requests: 12", 30, 90);
+    doc.text("Avg. Leave/Employee: 8.5 days", 30, 100);
+    doc.text("Total Leave Balance: 1,245 days", 30, 110);
+    
+    doc.text("Leave Type Breakdown:", 20, 130);
+    
+    let yPos = 145;
+    doc.setFontSize(10);
+    doc.text("Leave Type", 20, yPos);
+    doc.text("Taken", 80, yPos);
+    doc.text("Balance", 110, yPos);
+    doc.text("Utilization %", 150, yPos);
+    
+    yPos += 10;
+    filteredData.forEach((item) => {
+      doc.text(item.type, 20, yPos);
+      doc.text(`${item.taken} days`, 80, yPos);
+      doc.text(`${item.balance} days`, 110, yPos);
+      doc.text(`${item.utilized}%`, 150, yPos);
+      yPos += 8;
+    });
+    
+    doc.save(`leave_report_${selectedYear}.pdf`);
+    
+    toast({
+      title: "PDF Exported",
+      description: `Leave report for ${selectedYear} downloaded successfully.`
+    });
+  };
+
+  const handleExportExcel = () => {
+    const exportData = filteredData.map(item => ({
+      "Leave Type": item.type,
+      "Days Taken": item.taken,
+      "Days Balance": item.balance,
+      "Utilization (%)": item.utilized
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Leave Report");
+    XLSX.writeFile(wb, `leave_report_${selectedYear}.xlsx`);
+
+    toast({
+      title: "Excel Exported",
+      description: `Leave report exported to Excel successfully.`
+    });
+  };
 
   return (
     <AppLayout>
@@ -49,9 +121,13 @@ export default function LeaveReportPage() {
                 <SelectItem value="2022">2022</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" className="gap-2" data-testid="button-export">
+            <Button variant="outline" className="gap-2" onClick={handleExportPDF} data-testid="button-export-pdf">
               <Download className="h-4 w-4" />
-              Export
+              PDF
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={handleExportExcel} data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
             </Button>
           </div>
         </motion.div>
@@ -83,11 +159,25 @@ export default function LeaveReportPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-teal-600" />
-              Leave Type Summary
-            </CardTitle>
-            <CardDescription>Leave utilization by type for {selectedYear}</CardDescription>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-teal-600" />
+                  Leave Type Summary
+                </CardTitle>
+                <CardDescription>Leave utilization by type for {selectedYear}</CardDescription>
+              </div>
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search leave type..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -102,7 +192,7 @@ export default function LeaveReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {leaveTypeData.map((item, index) => (
+                  {filteredData.map((item, index) => (
                     <tr key={index} className="border-b hover:bg-slate-50" data-testid={`row-leave-${index}`}>
                       <td className="py-3 px-4 font-medium">{item.type}</td>
                       <td className="py-3 px-4">{item.taken} days</td>
