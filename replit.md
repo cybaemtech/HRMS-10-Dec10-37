@@ -18,6 +18,13 @@ HR Connect is a comprehensive HR management system built with React, TypeScript,
 - **Multi-role Support**: Admin, HR, Manager, Employee, and Developer roles
 
 ## Recent Changes
+- **2025-12-11**: Implemented full functionality for HR Letters, Self Service, and Reports pages
+  - HR Letters (4 pages): Generate letter dialogs, view/download PDF, send functionality
+  - Self Service (4 pages): Edit profile with photo upload, payslip view/download, document upload/download, attendance export
+  - Reports (5 pages): Export to PDF/Excel, search/filter, department/period filters, compliance details modal
+  - All pages use jsPDF for PDF generation and xlsx for Excel exports
+  - Profile page stores edits and photo uploads in local state for immediate UI updates
+
 - **2025-12-01**: Configured for cPanel subdirectory hosting at /hrms
   - Added wouter Router wrapper with dynamic base path support from Vite's BASE_URL
   - API calls automatically use BASE_URL or custom VITE_API_BASE environment variable
